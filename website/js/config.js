@@ -5,7 +5,7 @@ window._config = {
         region: 'ap-southeast-2' // e.g. us-east-2
     },
     api: {
-        invokeUrl: 'https://e0gfpi74lh.execute-api.ap-southeast-2.amazonaws.com/Prod' // e.g. https://rc7nyt4tql.execute-api.us-west-2.amazonaws.com/prod',
+        invokeUrl: 'https://gwjgb2cgq5.execute-api.ap-southeast-2.amazonaws.com/Prod' // e.g. https://rc7nyt4tql.execute-api.us-west-2.amazonaws.com/prod',
     },
     approval: {
         email: 'naum.fujimori@cmdsolutions.com.au'
