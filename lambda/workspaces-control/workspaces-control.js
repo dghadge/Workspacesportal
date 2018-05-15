@@ -44,6 +44,7 @@ exports.handler = (event, context, callback) => {
             } else {
                 for (var i = 0; i < data.Workspaces.length; i++) {
                     var workspaceDetails = data[i];
+                    console.log("current ID wokspaces is ="+data.Workspaces[i].WorkspaceId);
                     var describeTagsParams = {
                         ResourceId: data.Workspaces[i].WorkspaceId
                     };
