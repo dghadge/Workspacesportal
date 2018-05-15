@@ -44,7 +44,7 @@ exports.handler = (event, context, callback) => {
             } else {
                 for (var i = 0; i < data.Workspaces.length; i++) {
                     var workspaceDetails = data[i];
-                  
+                    console.log("current ID wokspaces is ="+data.Workspaces[i].WorkspaceId);
                     var describeTagsParams = {
                         ResourceId: data.Workspaces[i].WorkspaceId
                     };
@@ -58,9 +58,7 @@ exports.handler = (event, context, callback) => {
 
                                 if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
                                     console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    console.log("data ID" +data.Workspaces[i].WorkspaceId);
-                                    console.log("data tag list" +data.TagList[i].Key);
-                                    console.log("data Value tag list" +data.TagList[i].Value);
+                                    
                                     var describeDetailsParams = {
                                         WorkspaceIds: [
                                             describeTagsParams.ResourceId
