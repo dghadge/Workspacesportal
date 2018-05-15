@@ -7,7 +7,7 @@ var AWS = require('aws-sdk');
 const stepfunctions = new AWS.StepFunctions();
 
 // Create the Simple Email Services service object
-const ses = new AWS.SES();
+const ses = new AWS.SES({region: 'us-east-1'});
 
 exports.handler = (event, context, callback) => {
     var taskParams = {
