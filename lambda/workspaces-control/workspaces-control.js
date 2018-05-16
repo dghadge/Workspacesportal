@@ -51,6 +51,18 @@ exports.handler = (event, context, callback) => {
                     };
                     
                     console.log("Data after array"+JSON.stringify(describeTagsParams));
+                    function sleep(milliseconds) {
+                        var start = new Date().getTime();
+                        for (var i = 0; i < 1e7; i++) {
+                          if ((new Date().getTime() - start) > milliseconds){
+                            break;
+                          }
+                        }
+                      }
+                      console.log(new Date());
+                    console.log('Dude!');
+                    sleep(4000);
+                    console.log(new Date());
                 
                     workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails) {
                         console.log("data2"+JSON.stringify(data));
