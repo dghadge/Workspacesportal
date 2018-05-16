@@ -57,7 +57,8 @@ exports.handler = (event, context, callback) => {
                             for (var j = 0; j < data.TagList.length; j++) {
 
                                 if (data.TagList[j].Key == "SelfServiceManaged" && data.TagList[j].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("resource id '" + i);
+                                    console.log("resource idj" + j);
+                                    console.log("resource idi" + i);
                                     console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + data.Workspaces[i].WorkspaceId);
                                     
                                     var describeDetailsParams = {
