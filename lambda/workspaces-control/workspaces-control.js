@@ -54,7 +54,7 @@ exports.handler = (event, context, callback) => {
                             console.log(err, err.stack);
                         } else {
 
-                            for (var j = 0; j < data.TagList.length; i++) {
+                            for (var j = 0; j < data.TagList.length; j++) {
 
                                 if (data.TagList[j].Key == "SelfServiceManaged" && data.TagList[j].Value == event.requestContext.authorizer.claims.email) {
                                     console.log("resource id '" + i)
