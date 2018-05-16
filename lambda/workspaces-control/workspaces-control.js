@@ -44,6 +44,7 @@ exports.handler = (event, context, callback) => {
                 console.log(err, err.stack); // an error occurred
             } else {
                 for (var i = 0; i < data.Workspaces.length; i++) {
+                    
                     var workspaceDetails = data[i];
                     console.log("current ID wokspaces is ="+data.Workspaces[i].WorkspaceId);
                     var describeTagsParams = {
@@ -51,7 +52,10 @@ exports.handler = (event, context, callback) => {
                     };
                     
                     console.log("Data after array"+JSON.stringify(describeTagsParams));
-                    data = workspaces.describeTags(describeTagsParams);
+                    var describeTagsParams = {
+                    workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails,describeTagsParams) {
+                        console.log("data2"+JSON.stringify(data));
+                        console.log("describeparam"+JSON.stringify(describeTagsParams));
                         if (err) {
                             console.log(err, err.stack);
                         } else {
@@ -89,10 +93,10 @@ exports.handler = (event, context, callback) => {
                             }
 
                         }
-                        
-                    //workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails) {
-                        
-                    //});
+                        setTimeout(function() {
+                            console.log('waiting timeout');
+                         }, 3000);
+                    });
                     }
                 
 
