@@ -54,10 +54,11 @@ exports.handler = (event, context, callback) => {
                             console.log(err, err.stack);
                         } else {
 
-                            for (var i = 0; i < data.TagList.length; i++) {
+                            for (var j = 0; j < data.TagList.length; i++) {
 
-                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
+                                if (data.TagList[j].Key == "SelfServiceManaged" && data.TagList[j].Value == event.requestContext.authorizer.claims.email) {
+                                    console.log("resource id '" + i)
+                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + data.Workspaces[i].WorkspaceId);
                                     
                                     var describeDetailsParams = {
                                         WorkspaceIds: [
