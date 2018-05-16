@@ -53,7 +53,7 @@ exports.handler = (event, context, callback) => {
                     
                     console.log("Data after array"+JSON.stringify(describeTagsParams));
                     var describeTagsParams = {
-                    workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails,describeTagsParams) {
+                    workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails) {
                         console.log("data2"+JSON.stringify(data));
                         console.log("describeparam"+JSON.stringify(describeTagsParams));
                         if (err) {
@@ -93,9 +93,7 @@ exports.handler = (event, context, callback) => {
                             }
 
                         }
-                        setTimeout(function() {
-                            console.log('waiting timeout');
-                         }, 3000);
+                        
                     });
                     }
                 
