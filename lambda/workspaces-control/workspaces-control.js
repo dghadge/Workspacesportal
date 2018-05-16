@@ -57,11 +57,11 @@ exports.handler = (event, context, callback) => {
                             console.log(err, err.stack);
                         } else {
 
-                            for (var j = 0; j < data.TagList.length; j++) {
+                            for (var i = 0; i < data.TagList.length; i++) {
 
-                                if (data.TagList[j].Key == "SelfServiceManaged" && data.TagList[j].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("resource idj" + j);
-                                    console.log("resource idi" + i);
+                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
+                                    console.log("resource idj" + i);
+                                    
                                     console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
                                     
                                     var describeDetailsParams = {
