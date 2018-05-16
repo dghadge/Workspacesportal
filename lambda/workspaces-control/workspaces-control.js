@@ -39,6 +39,7 @@ exports.handler = (event, context, callback) => {
         // Obtain a list of all WorkSpaces, then parse the returned list to find the one with a 'SelfServiceManaged' tag
         // that equals the email address of the Cognito token, then take the ID of that WorkSpace and return all of its details back.
         workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
+            console.log(JSON.stringify(data));
             if (err) {
                 console.log(err, err.stack); // an error occurred
             } else {
@@ -59,7 +60,7 @@ exports.handler = (event, context, callback) => {
                                 if (data.TagList[j].Key == "SelfServiceManaged" && data.TagList[j].Value == event.requestContext.authorizer.claims.email) {
                                     console.log("resource idj" + j);
                                     console.log("resource idi" + i);
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + data.Workspaces[i].WorkspaceId);
+                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
                                     
                                     var describeDetailsParams = {
                                         WorkspaceIds: [
