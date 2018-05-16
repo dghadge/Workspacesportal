@@ -92,7 +92,11 @@ exports.handler = (event, context, callback) => {
 
                         }
                     });
+                    setTimeout(function() {
+                        console.log('waiting timeout');
+                     }, 3000);
                 }
+                
 
             }
         });
