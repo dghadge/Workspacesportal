@@ -50,7 +50,7 @@ exports.handler = (event, context, callback) => {
                         ResourceId: data.Workspaces[i].WorkspaceId
                     };
                     
-                    console.log("data2"+JSON.stringify(describeTagsParams));
+                    console.log("Data after array"+JSON.stringify(describeTagsParams));
                     s
                     workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails) {
                         console.log("data2"+JSON.stringify(data));
