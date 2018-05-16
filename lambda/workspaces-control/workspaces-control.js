@@ -52,8 +52,6 @@ exports.handler = (event, context, callback) => {
                     
                     console.log("Data after array"+JSON.stringify(describeTagsParams));
                     data = workspaces.describeTags(describeTagsParams);
-                    console.log("data2"+JSON.stringify(data));
-                        console.log("describeparam"+JSON.stringify(describeTagsParams));
                         if (err) {
                             console.log(err, err.stack);
                         } else {
