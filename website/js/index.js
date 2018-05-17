@@ -1,502 +1,339 @@
-'use strict';
+/*global Dashboard _config*/
 
-// Load the AWS SDK for Node.js
-var AWS = require('aws-sdk');
+var Dashboard = window.Dashboard || {};
+var authToken;
 
-// Create the WorkSpaces service object
-var workspaces = new AWS.WorkSpaces({
-    apiVersion: '2015-04-08'
-});
+(function ($) {
 
-// Create the Step Functions service object
-var stepfunctions = new AWS.StepFunctions();
+    // The API for the Workspaces Control function that handles create, reboot, rebuild, and delete operations.
+    var WORKSPACES_CONTROL_URL = _config.api.invokeUrl + '/workspaces-control';
 
-// Create the Lambda service object
-var lambda = new AWS.Lambda();
-
-exports.handler = (event, context, callback) => {
-
-    var originURL = process.env.ORIGIN_URL || '*'; // Origin URL to allow for CORS
-    var stateMachine = process.env.STATE_MACHINE_ARN || 'arn:aws:states:ap-southeast-2:240696153881:stateMachine:WSPortal-StateMachine'; // State Machine for 'create' action.
-    var detailsLambda = process.env.DETAILS_LAMBDA || 'wsportal-serverless-stack-workspacesDetails-ZTNJ1D599XAC';
-
-    console.log('Received event:', JSON.stringify(event, null, 2)); // Output log for debugging purposes.
-
-    // The 'action' parameter specifies what workspaces control should do. Accepted values: list, acknowledge, create, rebuild, reboot, delete, bundles.
-    var action = JSON.parse(event.body)["action"];
-    console.log("action: " + action);
-
-    if (action == "list") {
-        // 'list' handles outputting the WorkSpace details assigned to the user that submits the API call. 
-        // If no workspace is found, currently just responds with an error which is handled client-side.
-
-        // The 'email' value within the Cognito token is used to determine ownership, which is checked agaisnt the 'SelfServiceManaged' tag value.
-        // The tag value is used for ownership detection in order to avoid integrating with Directory Services directly.
-        console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
-
-        var params = [];
-
-        // Obtain a list of all WorkSpaces, then parse the returned list to find the one with a 'SelfServiceManaged' tag
-        // that equals the email address of the Cognito token, then take the ID of that WorkSpace and return all of its details back.
-               
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
-            console.log("data1"+JSON.stringify(data));
-            if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-                var emailsHasFound = false;
-                var workspaceDetails;
-                // [{ id: 1}, {id: 2}]
-                for (var i = 0; data.Workspaces.length > i; i++) {
-                    workspaceDetails = data.Workspaces[i];
-
-                    console.log("current ID wokspaces is ="+workspaceDetails.WorkspaceId);
-                    var describeTagsParams = {
-                        ResourceId: workspaceDetails.WorkspaceId
-                    };
-                    
-                    if (!emailsHasFound) {
-                        workspaces.describeTags(describeTagsParams, function (err, tagData) {
-                            console.log("data2"+JSON.stringify(tagData));
-                            console.log("describeparam"+JSON.stringify(describeTagsParams));
-                            if (err) {
-                                console.log(err, err.stack);
-                            } else {
-
-                                var emailsHasFound = tagData.TagList.some( function (tagList) {
-                                    return tagList.Key == "SelfServiceManaged" && 
-                                            tagList.Value == event.requestContext.authorizer.claims.email;
-                                });
-                                            
-                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + emailsHasFound + ". Workspace: " + JSON.stringify(workspaceDetails));
-                                var response = {
-                                    WorkspaceId: workspaceDetails.WorkspaceId,
-                                    UserName: workspaceDetails.Username,
-                                    State: workspaceDetails.State,
-                                    BundleId: workspaceDetails.BundleId,
-                                };
-
-                                if (emailsHasFound) {
-                                    console.log("Response: '" + JSON.stringify(response));
-                                    callback(null, {
-                                        "statusCode": 200,
-                                        "body": JSON.stringify(response),
-                                        "headers": {
-                                            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                            "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                            "Access-Control-Allow-Origin": originURL
-                                        }
-                                    });
-                                } else {
-                                    console.log("Tag not found for workspace " + JSON.stringify(workspaceDetails) + ". tags: " + JSON.stringify(tagData.TagList));
-                                }
-                            }
-                        });
-
-                    }
-                }
-            }
-        });
-
-    } else if (action == "details") {
-        var payloadString = JSON.stringify({
-            "action": "get",
-            "requesterEmailAddress": event.requestContext.authorizer.claims.email
-        });
-        var detailsParams = {
-            FunctionName: detailsLambda,
-            Payload: JSON.stringify({
-                "body": payloadString
-            })
-        };
-
-        lambda.invoke(detailsParams, function (err, data) {
-            if (err) {
-                console.log(err, err.stack);
-            } else {
-                console.log("Data: " + JSON.stringify(data));
-
-                console.log("Payload: " + data.Payload);
-
-                for (var i = 0; i < JSON.parse(data.Payload).length; i++) {
-                    console.log("Username #" + i + ": " + JSON.parse(data.Payload)[i].Username.S)
-                }
-
-                callback(null, {
-                    "statusCode": 200,
-                    "body": data.Payload,
-                    "headers": {
-                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                        "Access-Control-Allow-Methods": "GET,OPTIONS",
-                        "Access-Control-Allow-Origin": originURL
-                    }
-                });
-
-            }
-        });
-
-
-    } else if (action == "acknowledge") { 
-        var payloadString = JSON.stringify({
-            "action": "put",
-            "requesterEmailAddress": event.requestContext.authorizer.claims.email,
-            "requesterUsername": JSON.parse(event.body)["username"],
-            "ws_status": "Acknowledged"
-        });
-
-        var ackParams = {
-            FunctionName: detailsLambda,
-            Payload: JSON.stringify({
-                "body": payloadString
-            })
-        };
-
-        lambda.invoke(ackParams, function (err, data) {
-            if (err) {
-                console.log(err, err.stack);
-            } else {
-                console.log("Data: " + JSON.stringify(data));
-
-                callback(null, {
-                    "statusCode": 200,
-                    "body": data.Payload,
-                    "headers": {
-                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                        "Access-Control-Allow-Methods": "GET,OPTIONS",
-                        "Access-Control-Allow-Origin": originURL
-                    }
-                });
-
-            }
-        });
-
-    } else if (action == "create") {
-        // 'create' handles creation by initiating the Step Functions State Machine. The State Machine first sends an email
-        // to the configured Approver email address with two links: one to approve and one to decline. If the Approver declines, 
-        // the process ends. If the Approver approves, the next State Machine calls another Lambda function 'workspaces-create' that
-        // actually handles creating the WorkSpace.
-
-        var stepParams = {
-            stateMachineArn: stateMachine,
-            /* required */
-            input: JSON.stringify({
-                "action": "put",
-                "requesterEmailAddress": event.requestContext.authorizer.claims.email,
-                "requesterUsername": JSON.parse(event.body)["username"],
-                "requesterBundle": JSON.parse(event.body)["bundle"],
-                "ws_status": "Requested"
-            })
-        };
-        stepfunctions.startExecution(stepParams, function (err, data) {
-            if (err) {
-                console.log(err, err.stack);
-            } else {
-                console.log(data);
-                callback(null, {
-                    statusCode: 200,
-                    body: JSON.stringify({
-                        Result: data,
-                    }),
-                    headers: {
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                });
-            }
-        });
-    } else if (action == "rebuild") {
-        // 'rebuild' handles rebuilding the WorkSpace assigned to the user that submits the API call. 
-        // A rebuild function resets the WorkSpace back to its original state. Applications or system settings changes
-        // will be lost during a rebuild. The Data Drive is recreated from the last snapshot; snapshots are taken every 12 hours.
-
-        console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
-
-        var describeWorkspacesParams = [];
-
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
-            if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-
-                for (var i = 0; i < data.Workspaces.length; i++) {
-
-                    var describeTagsParams = {
-                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
-                    };
-                    workspaces.describeTags(describeTagsParams, function (err, data) {
-                        if (err) {
-                            console.log(err, err.stack);
-                        } else {
-                            for (var i = 0; i < data.TagList.length; i++) {
-                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    console.log("Rebuilding desktop '" + describeTagsParams.ResourceId + " per request.");
-
-                                    var rebuildParams = {
-                                        RebuildWorkspaceRequests: [{
-                                            WorkspaceId: describeTagsParams.ResourceId
-                                        }]
-                                    };
-
-                                    console.log(JSON.stringify(rebuildParams));
-
-                                    workspaces.rebuildWorkspaces(rebuildParams, function (err, data) {
-                                        if (err) {
-                                            console.log("Error: " + err);
-                                            callback(null, {
-                                                statusCode: 500,
-                                                body: JSON.stringify({
-                                                    Error: err,
-                                                }),
-                                                headers: {
-                                                    'Access-Control-Allow-Origin': '*',
-                                                },
-                                            });
-                                        } else {
-                                            console.log("Result: " + JSON.stringify(data));
-
-                                            callback(null, {
-                                                "statusCode": 200,
-                                                "body": JSON.stringify({
-                                                    Result: data
-                                                }),
-                                                "headers": {
-                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                                    "Access-Control-Allow-Origin": originURL
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                }
-                            }
-
-                        }
-                    });
-                }
-
-            }
-        });
-
-    } else if (action == "reboot") {
-        // 'rebuild' handles rebooting the WorkSpace assigned to the user that submits the API call. 
-
-        console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
-
-        var describeWorkspacesParams = [];
-
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
-            if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-
-                for (var i = 0; i < data.Workspaces.length; i++) {
-
-                    var describeTagsParams = {
-                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
-                    };
-                    workspaces.describeTags(describeTagsParams, function (err, data) {
-                        if (err) {
-                            console.log(err, err.stack);
-                        } else {
-
-                            for (var i = 0; i < data.TagList.length; i++) {
-                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    console.log("Rebooting desktop '" + describeTagsParams.ResourceId + " per request.");
-
-                                    var rebootParams = {
-                                        RebootWorkspaceRequests: [{
-                                            WorkspaceId: describeTagsParams.ResourceId
-                                        }]
-                                    };
-
-                                    console.log(JSON.stringify(rebootParams));
-
-                                    workspaces.rebootWorkspaces(rebootParams, function (err, data) {
-                                        if (err) {
-                                            console.log("Error: " + err);
-                                            callback(null, {
-                                                statusCode: 500,
-                                                body: JSON.stringify({
-                                                    Error: err,
-                                                }),
-                                                headers: {
-                                                    'Access-Control-Allow-Origin': '*',
-                                                },
-                                            });
-                                        } else {
-                                            console.log("Result: " + JSON.stringify(data));
-
-                                            callback(null, {
-                                                "statusCode": 200,
-                                                "body": JSON.stringify({
-                                                    Result: data
-                                                }),
-                                                "headers": {
-                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                                    "Access-Control-Allow-Origin": originURL
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                }
-                            }
-
-                        }
-                    });
-                }
-
-            }
-        });
-
-    } else if (action == "delete") {
-        // 'delete' handles deleting the WorkSpace assigned to the user that submits the API call. 
-        // This is a permanent action and cannot be undone. No data will persist after removal.
-
-        console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
-
-        var describeWorkspacesParams = [];
-
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
-            if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-
-                for (var i = 0; i < data.Workspaces.length; i++) {
-
-                    var describeTagsParams = {
-                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
-                    };
-                    workspaces.describeTags(describeTagsParams, function (err, data) {
-                        if (err) {
-                            console.log(err, err.stack);
-                        } else {
-
-                            for (var i = 0; i < data.TagList.length; i++) {
-                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    console.log("Deleting desktop '" + describeTagsParams.ResourceId + " per request.");
-
-                                    var deletionParams = {
-                                        TerminateWorkspaceRequests: [{
-                                            WorkspaceId: describeTagsParams.ResourceId
-                                        }]
-                                    };
-
-                                    console.log(JSON.stringify(deletionParams));
-
-                                    workspaces.terminateWorkspaces(deletionParams, function (err, data) {
-                                        if (err) {
-                                            console.log("Error: " + err);
-                                            callback(null, {
-                                                statusCode: 500,
-                                                body: JSON.stringify({
-                                                    Error: err,
-                                                }),
-                                                headers: {
-                                                    'Access-Control-Allow-Origin': '*',
-                                                },
-                                            });
-                                        } else {
-                                            console.log("Result: " + JSON.stringify(data));
-
-                                            callback(null, {
-                                                "statusCode": 200,
-                                                "body": JSON.stringify({
-                                                    Result: data
-                                                }),
-                                                "headers": {
-                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                                    "Access-Control-Allow-Origin": originURL
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                }
-                            }
-
-                        }
-                    });
-                }
-
-            }
-        });
-
-    } else if (action == "bundles") {
-        // 'bundles' handles returning the list of WorkSpaces bundles available to use. The WorkSpaces API only returns a page at a time, so we must recursively 
-        // make the call to describeWorkspaceBundles until NextToken is null.
-        // We must make the API call twice to return bundles owned by AMAZON and custom bundles.
-
-        var bundleList = [];
-
-        function getBundles(parameters, cb) {
-            workspaces.describeWorkspaceBundles(parameters, function (err, data) {
-                if (err) {
-                    callback(null, {
-                        statusCode: 500,
-                        body: JSON.stringify({
-                            Error: err,
-                        }),
-                        headers: {
-                            'Access-Control-Allow-Origin': '*',
-                        },
-                    });
-                } else {
-                    for (var i = 0; i < data["Bundles"].length; i++) {
-                        console.log(data["Bundles"][i].BundleId + ":" + data["Bundles"][i].Name);
-                        bundleList.push(data["Bundles"][i].BundleId + ":" + data["Bundles"][i].Name);
-                    }
-                    console.log("NextToken: " + data["NextToken"]);
-
-                    if (data.NextToken) {
-                        parameters.NextToken = data["NextToken"];
-                        getBundles(parameters, cb);
-                    } else {
-                        cb();
-                    }
-                }
-            });
+    // Check for an Authorization Token, and if one doesn't exist then redirect user to sign in.
+    Dashboard.authToken.then(function setAuthToken(token) {
+        if (token) {
+            authToken = token;
+        } else {
+            window.location.href = '/signin.html';
         }
+    }).catch(function handleTokenError(error) {
+        alert(error);
+        window.location.href = '/signin.html';
+    });
 
-        // Get the Amazon-owned bundle list first, and then get the Customer-owned bundles next, and then return the entire list.
-        getBundles({
-            Owner: 'AMAZON'
-        }, function () {
-            getBundles({
-                Owner: null
-            }, function () {
-                callback(null, {
-                    "statusCode": 200,
-                    "body": JSON.stringify({
-                        Result: bundleList
-                    }),
-                    "headers": {
-                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                        "Access-Control-Allow-Methods": "GET,OPTIONS",
-                        "Access-Control-Allow-Origin": originURL
-                    }
-                });
-            });
+    // Hide all of these panels by default, and show them as appropriate.
+    $("#desktopNoExist").hide();
+    $("#desktopExist").hide();
+    $('#desktopNoExist').removeAttr('hidden');
+    $('#desktopExist').removeAttr('hidden');
+    $("#methodStatus").hide();
+    $("#confirmDecommissionModal").hide();
+
+
+    // The handleRequest function gets creation form input (username, bundle) and passes it to the Workspaces Control API.
+    // Workspaces Control API handles the 'create' action by initiating a Step Function State Machine that requires Email Approval before creation.
+    // The WorkSpace will be created with a tag of "SelfServiceManaged" set to the email address within the Cognito auth token. This is how the portal
+    // ensures ownership of the WorkSpace without requiring direct Directory Services integration. WorkSpaces created outside of the portal cannot be 
+    // managed by the portal unless the "SelfServiceManaged" tag is manually set on the pre-existing WorkSpace.
+    function handleRequest(event) {
+        event.preventDefault();
+
+        var username = $('#reqUsername').val();
+        var bundle = $('#reqBundle').val();
+
+        $.ajax({
+            method: 'POST',
+            url: WORKSPACES_CONTROL_URL,
+            headers: {
+                Authorization: authToken
+            },
+            beforeSend: function () {},
+            complete: function () {},
+            data: JSON.stringify({
+                action: 'create',
+                username: username,
+                bundle: bundle
+            }),
+            contentType: 'text/plain',
+            error: function () {
+                $("#methodStatus").append('<div class="alert alert-danger"><b>Error! Something went wrong... Please contact an administrator if the problem persists.</div>');
+                $("#methodStatus").show();
+            },
+            success: function (data) {
+                $("#methodStatus").append('<div class="alert alert-success"><b>Success! WorkSpace request submitted...</b> This request must be approved before the WorkSpace will be created. An email has been sent to <b>' + _config.approval.email + '</b> to authorize this request. Once approved, the WorkSpace will be created automatically and an email will be sent to your email with instructions for access.</div>');
+                $("#methodStatus").show();
+            }
         });
 
-    } else {
-        console.log("No action specified.");
-        callback(null, {
-            "statusCode": 500,
-            "body": JSON.stringify({
-                Error: "No action specified."
+    }
+
+    // The handleReboot function does not require any inputs, as it determines the workspace to reboot by checking for a WorkSpace with
+    // a "SelfServiceManaged" tag set to the email address of the Cognito token; this logic is handled inside the Lambda function.
+    function handleReboot(event) {
+        event.preventDefault();
+
+        $.ajax({
+            method: 'POST',
+            url: WORKSPACES_CONTROL_URL,
+            headers: {
+                Authorization: authToken
+            },
+            beforeSend: function () {},
+            complete: function () {},
+            data: JSON.stringify({
+                action: 'reboot'
             }),
-            "headers": {
-                "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                "Access-Control-Allow-Methods": "GET,OPTIONS",
-                "Access-Control-Allow-Origin": originURL
+            contentType: 'text/plain',
+            error: function () {
+                $("#methodStatus").addClass("alert-danger");
+                $("#methodStatus").html('<div class="alert alert-danger"><b>Error! Something went wrong... Please contact an administrator if the problem persists.</div>');
+                $("#methodStatus").show();
+            },
+            success: function (data) {
+                $("#methodStatus").addClass("alert-success");
+                $("#methodStatus").html('<div class="alert alert-success"><b>Success! WorkSpace reboot in-progress...</b> Please allow up to 5 minutes for the virtual desktop to be fully rebooted.</div>');
+                $("#methodStatus").show();
+                setTimeout(function () {
+                    location.reload();
+                }, 60000);
+            }
+        });
+
+    }
+
+    // The handleRebuilt function does not require any inputs, as it determines the workspace to rebuild by checking for a WorkSpace with
+    // a "SelfServiceManaged" tag set to the email address of the Cognito token; this logic is handled inside the Lambda function.
+    function handleRebuild(event) {
+        event.preventDefault();
+
+        $.ajax({
+            method: 'POST',
+            url: WORKSPACES_CONTROL_URL,
+            headers: {
+                Authorization: authToken
+            },
+            beforeSend: function () {},
+            complete: function () {},
+            data: JSON.stringify({
+                action: 'rebuild'
+            }),
+            contentType: 'text/plain',
+            error: function () {
+                $("#methodStatus").addClass("alert-danger");
+                $("#methodStatus").html('<div class="alert alert-danger"><b>Error! Something went wrong... Please contact an administrator if the problem persists.</div>');
+                $("#methodStatus").show();
+            },
+            success: function (data) {
+                $("#methodStatus").addClass("alert-success");
+                $("#methodStatus").html('<div class="alert alert-success"><b>Success! WorkSpace rebuild in-progress...</b> Please allow up to 10 minutes for the virtual desktop to be fully rebuilt. Once complete, an email will be sent with details.</div>');
+                $("#methodStatus").show();
+                setTimeout(function () {
+                    location.reload();
+                }, 60000);
+            }
+        });
+
+    }
+
+    // This function is called to handle the initial click of "Delete WorkSpace", and opens a confirmation modal pop-up. Inside that modal is
+    // another button that calls the actual deletion function.
+    function handleDecommission(event) {
+        event.preventDefault();
+
+        $('#confirmDecommissionModal').modal({
+            show: true,
+            backdrop: 'static',
+            keyboard: false
+        });
+
+    }
+
+    // The handleConfirmDecommission function does not require any inputs, as it determines the workspace to rebuild by checking for a WorkSpace with
+    // a "SelfServiceManaged" tag set to the email address of the Cognito token; this logic is handled inside the Lambda function. This function
+    // is called after the user confirms deletion through the modal pop-up. The modal pop-up is initiated by handleDecommsion().
+    function handleConfirmDecommission(event) {
+        event.preventDefault();
+        $.ajax({
+            method: 'POST',
+            url: WORKSPACES_CONTROL_URL,
+            headers: {
+                Authorization: authToken
+            },
+            beforeSend: function () {
+                $('#confirmDecommissionModal').modal('hide');
+            },
+            complete: function () {},
+            data: JSON.stringify({
+                action: 'delete'
+            }),
+            contentType: 'text/plain',
+            error: function () {
+                $("#methodStatus").addClass("alert-danger");
+                $("#methodStatus").html('<div class="alert alert-danger"><b>Error! Something went wrong... Please contact an administrator if the problem persists.</div>');
+                $("#methodStatus").show();
+            },
+            success: function (data) {
+                $("#methodStatus").addClass("alert-success");
+                $("#methodStatus").html('<div class="alert alert-success"><b>Success! WorkSpace removal in-progress...</b> Please allow up to 10 minutes for the virtual desktop to be fully removed.');
+                $("#methodStatus").show();
+                setTimeout(function () {
+                    location.reload();
+                }, 60000);
             }
         });
     }
 
-}
+    // The determineWorkspace function is called to get details of the assigned WorkSpace, and populate the WorkSpace details and action panes. In the event
+    // there is no WorkSpace found,  populate the list of bundles available and allow the user to request one. The function takes an optional eventSource
+    // parameter to handle recursion if necessary to avoid an initial bundle listing edge case.
+    function determineWorkspace(eventSource) {
+        $.ajax({
+            method: 'POST',
+            url: WORKSPACES_CONTROL_URL,
+            headers: {
+                Authorization: authToken
+            },
+            beforeSend: function () {
+                $("#loadDiv").show(); // Show a spinning loader to let the user know something is happening.
+            },
+            complete: function () {
+                $("#loadDiv").hide(); // Hide the spinning loader once the AJAX call is complete.
+            },
+            data: JSON.stringify({
+                action: 'list'
+            }),
+            contentType: 'text/plain',
+            error: function () {
+                $.ajax({
+                    method: 'POST',
+                    url: WORKSPACES_CONTROL_URL,
+                    headers: {
+                        Authorization: authToken
+                    },
+                    beforeSend: function () {
+                        $("#loadDiv").show(); // Show a spinning loader to let the user know something is happening.
+                    },
+                    complete: function () {
+                        $("#loadDiv").hide(); // Hide the spinning loader once the AJAX call is complete.
+                    },
+                    data: JSON.stringify({
+                        action: 'bundles'
+                    }),
+                    contentType: 'text/plain',
+                    error: function () {
+                        if (eventSource == "init") {
+                            determineWorkspace("recursive");
+                        } else {
+                            $('#reqBundle')
+                                .append($("<option></option>")
+                                    .attr("value", "error")
+                                    .text("ERROR: No bundles found."));
+                            $("#desktopNoExist").show(); // If no WorkSpace is returned, show the request panel.
+                        }
+                    },
+                    success: function (data) {
+                        for (var i = 0; i < data.Result.length; i++) {
+                            $('#reqBundle')
+                                .append($("<option></option>")
+                                    .attr("value", data.Result[i].split(':')[0])
+                                    .text(data.Result[i].split(':')[1]));
+                            $("#desktopNoExist").show(); // If no WorkSpace is returned, show the request panel.
+                        }
+                    }
+                });
+            },
+            success: function (data) {
+                // If a WorkSpace is returned, populate the table with its details (ID, Username, State, and Bundle ID).
+                $("#workspace-Id").html(data.WorkspaceId);
+                $("#workspace-Username").html(data.UserName);
+                $("#workspace-State").html(data.State);
+                $("#workspace-Bundle").html(data.BundleId);
+                $("#desktopExist").show();
+            }
+        });
+    }
+
+    // the determineWorkflowStatus function is called to get the status details on the creation request. If the request is pending approval, the user is 
+    // notified of such. If the request is rejected, the user is notified of such until they acknowledge. If this request is approved or doesn't exist, 
+    // then nothing is displayed.      
+    function determineWorkflowStatus() {
+        $.ajax({
+            method: 'POST',
+            url: WORKSPACES_CONTROL_URL,
+            headers: {
+                Authorization: authToken
+            },
+            beforeSend: function () {},
+            complete: function () {},
+            data: JSON.stringify({
+                action: 'details'
+            }),
+            contentType: 'text/plain',
+            error: function () {
+
+            },
+            success: function (data) {
+
+                for (var i = 0; i < data.length; i++) {
+                    if (data[i].WS_Status.S == "Requested") {
+                        $("#methodStatus").append('<div class="alert alert-warning"><div class="row"><div class="col-sm-6 ml-right"><div class="methodMessage">WorkSpace approval pending for user: <b>' + data[i].Username.S + '</b></div></div><div class="col-sm-3 ml-auto"><div class="methodCommand"></div></div></div></div>');
+
+                        $("#methodStatus").show();
+                    } else if (data[i].WS_Status.S == "Rejected") {
+                        $("#methodStatus").append('<div class="alert alert-danger alert-dismissible fade show"><button id="acknowledgeReject-' + data[i].Username.S + '" class="close" data-dismiss="alert" type="button"><span>&times;</span></button>WorkSpace request rejected for user: <strong>' + data[i].Username.S + '</strong></div>');
+
+                        $("#acknowledgeReject-" + data[i].Username.S).on('click', function () {
+                            $.ajax({
+                                method: 'POST',
+                                url: WORKSPACES_CONTROL_URL,
+                                headers: {
+                                    Authorization: authToken
+                                },
+                                beforeSend: function () {},
+                                complete: function () {},
+                                data: JSON.stringify({
+                                    action: 'acknowledge',
+                                    username: this.id.split("-")[1]
+                                }),
+                                contentType: 'text/plain',
+                                error: function () {},
+                                success: function (data) {
+                                    location.reload();
+                                }
+                            });
+                        });
+
+                        $("#methodStatus").show();
+                    }
+                }
+            }
+        });
+    }
+
+    $(function init() {
+
+        if (!_config.api.invokeUrl) { // Show this message if the Portal's API is not configured.
+            $('#noApiMessage').show();
+        }
+
+        determineWorkflowStatus(); // Determine if there is an active request, and notify user of status.
+        determineWorkspace("init"); // Determine if there is a WorkSpace assigned to the user, and if so then populate actions. If not, show the request div.
+
+    });
+
+    $(function onDocReady() {
+
+        // Hook up functions to forms' submit buttons.
+        $('#requestWorkSpace').submit(handleRequest);
+        $('#decommissionWorkSpace').submit(handleDecommission);
+        $('#confirmDecommissionWorkSpace').submit(handleConfirmDecommission);
+        $('#rebootWorkSpace').submit(handleReboot);
+        $('#rebuildWorkSpace').submit(handleRebuild);
+
+        // If there is a WorkSpace for the user, give the user a direct button to refresh status.
+        $("#reloadButton").on('click', function () {
+            location.reload();
+        });
+
+    });
+
+}(jQuery));
