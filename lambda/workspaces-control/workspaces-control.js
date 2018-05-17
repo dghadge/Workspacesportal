@@ -44,43 +44,50 @@ exports.handler = (event, context, callback) => {
             if (err) {
                 console.log(err, err.stack); // an error occurred
             } else {
-                for (var i = 0; i < data.Workspaces.length; i++) {
-                    var workspaceDetails = data[i];
-                    console.log("current ID wokspaces is ="+data.Workspaces[i].WorkspaceId);
+                var emailsHasFound = false;
+                var workspaceDetails;
+                // [{ id: 1}, {id: 2}]
+                for (var i = 0; data.Workspaces.length > i; i++) {
+                    workspaceDetails = data.Workspaces[i];
+
+                    console.log("current ID wokspaces is ="+workspaceDetails.WorkspaceId);
                     var describeTagsParams = {
-                        ResourceId: data.Workspaces[i].WorkspaceId
+                        ResourceId: workspaceDetails.WorkspaceId
                     };
-                                   
-                    workspaces.describeTags(describeTagsParams, function (err, data, workspaceDetails) {
-                        console.log("data2"+JSON.stringify(data));
-                        console.log("describeparam"+JSON.stringify(describeTagsParams));
-                        if (err) {
-                            console.log(err, err.stack);
-                        } else {
+                    
+                    if (!emailsHasFound) {
+                        workspaces.describeTags(describeTagsParams, function (err, tagData) {
+                            console.log("data2"+JSON.stringify(tagData));
+                            console.log("describeparam"+JSON.stringify(describeTagsParams));
+                            if (err) {
+                                console.log(err, err.stack);
+                            } else {
 
-                            var filteredTag = data.TagList.find( function (tagList) {
-                                return tagList.Key == "SelfServiceManaged" && 
-                                        tagList.Value == event.requestContext.authorizer.claims.email;
-                            });
-                            //console.log("filteredtag "+JSON.stringify(filteredTag))
-                            if (filteredTag) {
-        
-                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " +JSON.stringify(data));
-        
-                                callback(null, {
-                                    "statusCode": 200,
-                                    "body": JSON.stringify(filteredTag),
-                                    "headers": {
-                                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                        "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                        "Access-Control-Allow-Origin": originURL
-                                    }
+                                var emailsHasFound = tagData.TagList.some( function (tagList) {
+                                    return tagList.Key == "SelfServiceManaged" && 
+                                            tagList.Value == event.requestContext.authorizer.claims.email;
                                 });
+                                            
+                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + emailsHasFound + "" + JSON.stringify(workspaceDetails));
+                        
+                                if (emailsHasFound) {
+                                    callback(null, {
+                                        "statusCode": 200,
+                                        "body": JSON.stringify({ id: workspaceDetails.WorkspaceId }),
+                                        "headers": {
+                                            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                                            "Access-Control-Allow-Methods": "GET,OPTIONS",
+                                            "Access-Control-Allow-Origin": originURL
+                                        }
+                                    });
+                                } else {
+                                    console.log("Tag not found for workspace " + JSON.stringify(workspaceDetails) + ". tags: " + JSON.stringify(tagData.TagList));
+                                }
                             }
+                        });
 
-                        }
-                    });
-                }
+                    }
+                });
 
             }
         });
