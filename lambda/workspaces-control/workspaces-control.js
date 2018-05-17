@@ -23,7 +23,9 @@ exports.handler = (event, context, callback) => {
     console.log('Received event:', JSON.stringify(event, null, 2)); // Output log for debugging purposes.
 
     // The 'action' parameter specifies what workspaces control should do. Accepted values: list, acknowledge, create, rebuild, reboot, delete, bundles.
-    var action = JSON.parse(event.body)["action"];
+    const request = JSON.parse(event.body);
+    const action = request.action;
+
     console.log("action: " + action);
 
     if (action == "list") {
@@ -172,6 +174,8 @@ exports.handler = (event, context, callback) => {
         // the process ends. If the Approver approves, the next State Machine calls another Lambda function 'workspaces-create' that
         // actually handles creating the WorkSpace.
 
+        
+
         var stepParams = {
             stateMachineArn: stateMachine,
             /* required */
@@ -205,73 +209,41 @@ exports.handler = (event, context, callback) => {
         // will be lost during a rebuild. The Data Drive is recreated from the last snapshot; snapshots are taken every 12 hours.
 
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
+        console.log('Request params:' + JSON.stringify(request));
+        const WorkspaceId = request.WorkspaceId;
+        var rebuildParams = {
+            RebuildWorkspaceRequests: [{ WorkspaceId }]
+        };
 
-        var describeWorkspacesParams = [];
+        console.log('rebuild params: '+ JSON.stringify(rebuildParams));
 
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
+        workspaces.rebuildWorkspaces(rebuildParams, function (err, data) {
             if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-
-                for (var i = 0; i < data.Workspaces.length; i++) {
-
-                    var describeTagsParams = {
-                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
-                    };
-                    workspaces.describeTags(describeTagsParams, function (err, data) {
-                        if (err) {
-                            console.log(err, err.stack);
-                        } else {
-                            for (var i = 0; i < data.TagList.length; i++) {
-                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    console.log("Rebuilding desktop '" + describeTagsParams.ResourceId + " per request.");
-
-                                    var rebuildParams = {
-                                        RebuildWorkspaceRequests: [{
-                                            WorkspaceId: describeTagsParams.ResourceId
-                                        }]
-                                    };
-
-                                    console.log(JSON.stringify(rebuildParams));
-
-                                    workspaces.rebuildWorkspaces(rebuildParams, function (err, data) {
-                                        if (err) {
-                                            console.log("Error: " + err);
-                                            callback(null, {
-                                                statusCode: 500,
-                                                body: JSON.stringify({
-                                                    Error: err,
-                                                }),
-                                                headers: {
-                                                    'Access-Control-Allow-Origin': '*',
-                                                },
-                                            });
-                                        } else {
-                                            console.log("Result: " + JSON.stringify(data));
-
-                                            callback(null, {
-                                                "statusCode": 200,
-                                                "body": JSON.stringify({
-                                                    Result: data
-                                                }),
-                                                "headers": {
-                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                                    "Access-Control-Allow-Origin": originURL
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                }
-                            }
-
-                        }
-                    });
-                }
-
+                console.log("Error: " + err);
+                return callback(null, {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        Error: err,
+                    }),
+                    headers: {
+                        'Access-Control-Allow-Origin': '*', // isso aqui é falha de seguranca... vou deixar por enquanto, mas tem que remover
+                    },
+                });
             }
+
+            console.log("Result: " + JSON.stringify(data));
+
+            callback(null, {
+                "statusCode": 200,
+                "body": JSON.stringify({
+                    Result: data
+                }),
+                "headers": {
+                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                    "Access-Control-Allow-Methods": "GET,OPTIONS",
+                    "Access-Control-Allow-Origin": originURL
+                }
+            });
         });
 
     } else if (action == "reboot") {
