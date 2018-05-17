@@ -39,65 +39,60 @@ exports.handler = (event, context, callback) => {
         // Obtain a list of all WorkSpaces, then parse the returned list to find the one with a 'SelfServiceManaged' tag
         // that equals the email address of the Cognito token, then take the ID of that WorkSpace and return all of its details back.
                
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
-            console.log("data1"+JSON.stringify(data));
+        workspaces.describeWorkspaces(describeWorkspacesParams, (err, data) => {
+            // console.log("data1"+JSON.stringify(data));
             if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-                var emailsHasFound = false;
-                var workspaceDetails;
-                // [{ id: 1}, {id: 2}]
-                for (var i = 0; data.Workspaces.length > i; i++) {
-                    
-                    if (!emailsHasFound) {
-                        workspaceDetails = data.Workspaces[i];
-    
-                        console.log("current ID wokspaces is ="+workspaceDetails.WorkspaceId);
-                        var describeTagsParams = {
-                            ResourceId: workspaceDetails.WorkspaceId
-                        };
-                        workspaces.describeTags(describeTagsParams, function (err, tagData) {
-                            console.log("data2"+JSON.stringify(tagData));
-                            console.log("current ID wokspaces is2 ="+workspaceDetails.WorkspaceId);
-                            console.log("describeparam"+JSON.stringify(describeTagsParams));
-                            if (err) {
-                                console.log(err, err.stack);
-                            } else {
-
-                                var emailsHasFound = tagData.TagList.some( function (tagList) {
-                                    return tagList.Key == "SelfServiceManaged" && 
-                                            tagList.Value == event.requestContext.authorizer.claims.email;
-                                });
-                                            
-                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + emailsHasFound + ". Workspace: " + JSON.stringify(workspaceDetails));
-                                var response = {
-                                    WorkspaceId: workspaceDetails.WorkspaceId,
-                                    UserName: workspaceDetails.UserName,
-                                    State: workspaceDetails.State,
-                                    BundleId: workspaceDetails.BundleId,
-                                };
-
-                                if (emailsHasFound) {
-                                    console.log("Response: '" + JSON.stringify(response));
-                                    callback(null, {
-                                        "statusCode": 200,
-                                        "body": JSON.stringify(response),
-                                        "headers": {
-                                            "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                            "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                            "Access-Control-Allow-Origin": originURL
-                                        }
-                                    });
-                                } else {
-                                    console.log("Tag not found for workspace " + JSON.stringify(workspaceDetails) + ". tags: " + JSON.stringify(tagData.TagList));
-                                }
-                            }
-                        });
-                        console.log("current ID wokspaces is 3 ="+workspaceDetails.WorkspaceId);
-                    }
-                }
+              console.log(err, err.stack); // an error occurred
+              return;
             }
-        });
+          
+            // [{ id: 1}, {id: 2}]
+            data.Workspaces.forEach((workspaceDetails) => {
+              console.log('>>>>>>>>>>>>>>>>>>>>');
+              console.log(`Current ID wokspaces is = ${workspaceDetails.WorkspaceId}`);
+              const describeTagsParams = {
+                ResourceId: workspaceDetails.WorkspaceId,
+              };
+          
+              return workspaces.describeTags(describeTagsParams, (error, tagData) => {
+                console.log(`data2${  JSON.stringify(tagData)}`);
+                console.log(`describeparam${  JSON.stringify(describeTagsParams)}`);
+                if (error) {
+                  console.log(error, error.stack);
+                  return;
+                }
+          
+                const emailsHasFound = tagData.TagList.some(tagList =>
+                  tagList.Key === 'SelfServiceManaged' &&
+                  tagList.Value === event.requestContext.authorizer.claims.email
+                );
+          
+                console.log(`Desktop for '${event.requestContext.authorizer.claims.email}' found: ${emailsHasFound}. Workspace: ${JSON.stringify(workspaceDetails)}`);
+                const response = {
+                  WorkspaceId: workspaceDetails.WorkspaceId,
+                  UserName: workspaceDetails.UserName,
+                  State: workspaceDetails.State,
+                  BundleId: workspaceDetails.BundleId,
+                };
+          
+                if (emailsHasFound) {
+                  console.log(`Response: '${JSON.stringify(response)}`);
+                  return callback(null, {
+                    statusCode: 200,
+                    body: JSON.stringify(response),
+                    headers: {
+                      'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+                      'Access-Control-Allow-Methods': 'GET,OPTIONS',
+                      'Access-Control-Allow-Origin': originURL,
+                    },
+                  });
+                } else {
+                  console.log(`Tag not found for workspace ${JSON.stringify(workspaceDetails)}. tags: ${JSON.stringify(tagData.TagList)}`);
+                }
+                
+              });
+            });
+          });
 
     } else if (action == "details") {
         var payloadString = JSON.stringify({
