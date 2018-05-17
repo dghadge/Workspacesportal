@@ -93,7 +93,7 @@ exports.handler = (event, context, callback) => {
                                 }
                             }
                         });
-
+                        console.log("current ID wokspaces is 3 ="+workspaceDetails.WorkspaceId);
                     }
                 }
             }
