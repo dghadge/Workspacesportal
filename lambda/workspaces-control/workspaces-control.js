@@ -65,7 +65,7 @@ exports.handler = (event, context, callback) => {
                             //console.log("filteredtag "+JSON.stringify(filteredTag))
                             if (filteredTag) {
         
-                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " +JSON.stringify(filteredTag));
+                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " +JSON.stringify(data));
         
                                 callback(null, {
                                     "statusCode": 200,
