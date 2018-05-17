@@ -68,12 +68,19 @@ exports.handler = (event, context, callback) => {
                                             tagList.Value == event.requestContext.authorizer.claims.email;
                                 });
                                             
-                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + emailsHasFound + "" + JSON.stringify(workspaceDetails));
-                        
+                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + emailsHasFound + ". Workspace: " + JSON.stringify(workspaceDetails));
+                                var response = {
+                                    WorkspaceId: workspaceDetails.WorkspaceId,
+                                    UserName: workspaceDetails.Username,
+                                    State: workspaceDetails.State,
+                                    BundleId: workspaceDetails.BundleId,
+                                };
+
                                 if (emailsHasFound) {
+                                    console.log("Response: '" + JSON.stringify(response));
                                     callback(null, {
                                         "statusCode": 200,
-                                        "body": JSON.stringify({ id: workspaceDetails.WorkspaceId }),
+                                        "body": JSON.stringify(response),
                                         "headers": {
                                             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
                                             "Access-Control-Allow-Methods": "GET,OPTIONS",
