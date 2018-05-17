@@ -27,7 +27,6 @@ exports.handler = (event, context, callback) => {
     const action = request.action;
 
     console.log("action: " + action);
-// o passing do delete se envio jah?
 
     if (action == "list") {
         // 'list' handles outputting the WorkSpace details assigned to the user that submits the API call. 
@@ -175,14 +174,16 @@ exports.handler = (event, context, callback) => {
         // the process ends. If the Approver approves, the next State Machine calls another Lambda function 'workspaces-create' that
         // actually handles creating the WorkSpace.
 
+        
+
         var stepParams = {
             stateMachineArn: stateMachine,
             /* required */
             input: JSON.stringify({
                 "action": "put",
                 "requesterEmailAddress": event.requestContext.authorizer.claims.email,
-                "requesterUsername": request.username,
-                "requesterBundle": request.bundle,
+                "requesterUsername": JSON.parse(event.body)["username"],
+                "requesterBundle": JSON.parse(event.body)["bundle"],
                 "ws_status": "Requested"
             })
         };
@@ -249,47 +250,73 @@ exports.handler = (event, context, callback) => {
         // 'rebuild' handles rebooting the WorkSpace assigned to the user that submits the API call. 
 
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
-        console.log('Request params:' + JSON.stringify(request));
-        const WorkspaceId = request.WorkspaceId;
-        var rebuildParams = {
-            RebuildWorkspaceRequests: [{ WorkspaceId }]
-        };
 
-        console.log('rebuild params: '+ JSON.stringify(rebuildParams));
+        var describeWorkspacesParams = [];
 
-        var rebootParams = {
-            RebootWorkspaceRequests: [{
-                WorkspaceId: describeTagsParams.ResourceId
-            }]
-        };
-        console.log(JSON.stringify(rebootParams));
-
-        workspaces.rebootWorkspaces(rebootParams, function (err, data) {
+        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
             if (err) {
-                console.log("Error: " + err);
-                callback(null, {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        Error: err,
-                    }),
-                    headers: {
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                });
+                console.log(err, err.stack); // an error occurred
             } else {
-                console.log("Result: " + JSON.stringify(data));
 
-                callback(null, {
-                    "statusCode": 200,
-                    "body": JSON.stringify({
-                        Result: data
-                    }),
-                    "headers": {
-                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                        "Access-Control-Allow-Methods": "GET,OPTIONS",
-                        "Access-Control-Allow-Origin": originURL
-                    }
-                });
+                for (var i = 0; i < data.Workspaces.length; i++) {
+
+                    var describeTagsParams = {
+                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
+                    };
+                    workspaces.describeTags(describeTagsParams, function (err, data) {
+                        if (err) {
+                            console.log(err, err.stack);
+                        } else {
+
+                            for (var i = 0; i < data.TagList.length; i++) {
+                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
+                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
+                                    console.log("Rebooting desktop '" + describeTagsParams.ResourceId + " per request.");
+
+                                    var rebootParams = {
+                                        RebootWorkspaceRequests: [{
+                                            WorkspaceId: describeTagsParams.ResourceId
+                                        }]
+                                    };
+
+                                    console.log(JSON.stringify(rebootParams));
+
+                                    workspaces.rebootWorkspaces(rebootParams, function (err, data) {
+                                        if (err) {
+                                            console.log("Error: " + err);
+                                            callback(null, {
+                                                statusCode: 500,
+                                                body: JSON.stringify({
+                                                    Error: err,
+                                                }),
+                                                headers: {
+                                                    'Access-Control-Allow-Origin': '*',
+                                                },
+                                            });
+                                        } else {
+                                            console.log("Result: " + JSON.stringify(data));
+
+                                            callback(null, {
+                                                "statusCode": 200,
+                                                "body": JSON.stringify({
+                                                    Result: data
+                                                }),
+                                                "headers": {
+                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
+                                                    "Access-Control-Allow-Origin": originURL
+                                                }
+                                            });
+                                        }
+                                    });
+
+                                }
+                            }
+
+                        }
+                    });
+                }
+
             }
         });
 
@@ -298,40 +325,73 @@ exports.handler = (event, context, callback) => {
         // This is a permanent action and cannot be undone. No data will persist after removal.
 
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
-        console.log('Request params:' + JSON.stringify(request));
-        const WorkspaceId = request.WorkspaceId;
 
-        var deletionParams = {
-            TerminateWorkspaceRequests: [{ WorkspaceId }]
-        };
-        console.log('delete params: '+ JSON.stringify(deletionParams));
+        var describeWorkspacesParams = [];
 
-        workspaces.terminateWorkspaces(deletionParams, function (err, data) {
+        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
             if (err) {
-                console.log("Error: " + err);
-                callback(null, {
-                    statusCode: 500,
-                    body: JSON.stringify({
-                        Error: err,
-                    }),
-                    headers: {
-                        'Access-Control-Allow-Origin': '*',
-                    },
-                });
+                console.log(err, err.stack); // an error occurred
             } else {
-                console.log("Result: " + JSON.stringify(data));
 
-                callback(null, {
-                    "statusCode": 200,
-                    "body": JSON.stringify({
-                        Result: data
-                    }),
-                    "headers": {
-                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                        "Access-Control-Allow-Methods": "GET,OPTIONS",
-                        "Access-Control-Allow-Origin": originURL
-                    }
-                });
+                for (var i = 0; i < data.Workspaces.length; i++) {
+
+                    var describeTagsParams = {
+                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
+                    };
+                    workspaces.describeTags(describeTagsParams, function (err, data) {
+                        if (err) {
+                            console.log(err, err.stack);
+                        } else {
+
+                            for (var i = 0; i < data.TagList.length; i++) {
+                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
+                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
+                                    console.log("Deleting desktop '" + describeTagsParams.ResourceId + " per request.");
+
+                                    var deletionParams = {
+                                        TerminateWorkspaceRequests: [{
+                                            WorkspaceId: describeTagsParams.ResourceId
+                                        }]
+                                    };
+
+                                    console.log(JSON.stringify(deletionParams));
+
+                                    workspaces.terminateWorkspaces(deletionParams, function (err, data) {
+                                        if (err) {
+                                            console.log("Error: " + err);
+                                            callback(null, {
+                                                statusCode: 500,
+                                                body: JSON.stringify({
+                                                    Error: err,
+                                                }),
+                                                headers: {
+                                                    'Access-Control-Allow-Origin': '*',
+                                                },
+                                            });
+                                        } else {
+                                            console.log("Result: " + JSON.stringify(data));
+
+                                            callback(null, {
+                                                "statusCode": 200,
+                                                "body": JSON.stringify({
+                                                    Result: data
+                                                }),
+                                                "headers": {
+                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
+                                                    "Access-Control-Allow-Origin": originURL
+                                                }
+                                            });
+                                        }
+                                    });
+
+                                }
+                            }
+
+                        }
+                    });
+                }
+
             }
         });
 
@@ -341,13 +401,6 @@ exports.handler = (event, context, callback) => {
         // We must make the API call twice to return bundles owned by AMAZON and custom bundles.
 
         var bundleList = [];
-// isso ai eh quando nao encontra maquina nenhuma ai libera a opcao pro usuario criar sua maquina
-// entao por enquanto a gente nao mexe?
-// é isso?
-// eh pq tah funfando certo quer ver?
-// nao tá de boa, confio em vc :D ahahahhaa
-// eh soh a rebuild reboot e destroy
-// massa. deixa dar uma olhada rapidao se ta tudo ok e a gente manda bala
 
         function getBundles(parameters, cb) {
             workspaces.describeWorkspaceBundles(parameters, function (err, data) {
