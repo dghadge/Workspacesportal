@@ -27,6 +27,7 @@ exports.handler = (event, context, callback) => {
     const action = request.action;
 
     console.log("action: " + action);
+// o passing do delete se envio jah?
 
     if (action == "list") {
         // 'list' handles outputting the WorkSpace details assigned to the user that submits the API call. 
@@ -299,16 +300,11 @@ exports.handler = (event, context, callback) => {
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
         console.log('Request params:' + JSON.stringify(request));
         const WorkspaceId = request.WorkspaceId;
-        var rebuildParams = {
-            RebuildWorkspaceRequests: [{ WorkspaceId }]
-        };
-// delete ja foi, so precisamos alterar no front para passar o mesmo id...next!
-        console.log('rebuild params: '+ JSON.stringify(rebuildParams));
+
         var deletionParams = {
             TerminateWorkspaceRequests: [{ WorkspaceId }]
         };
-
-        console.log(JSON.stringify(deletionParams));
+        console.log('delete params: '+ JSON.stringify(deletionParams));
 
         workspaces.terminateWorkspaces(deletionParams, function (err, data) {
             if (err) {
