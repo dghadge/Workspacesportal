@@ -58,58 +58,26 @@ exports.handler = (event, context, callback) => {
                             console.log(err, err.stack);
                         } else {
 
-                            
-
-                            //for (var i = 0; i < data.TagList.length; i++) {
-
-                               // if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                               //     console.log("resource idj" + i);
-                                    
-                              //      console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    
-                                 //   var describeDetailsParams = {
-                               //         WorkspaceIds: [
-                               //             describeTagsParams.ResourceId
-                               //         ]
-                               //     };
-                               //     workspaces.describeWorkspaces(describeDetailsParams, function (err, data) {
-//
-                                 //       if (err) {
-                                   //         console.log(err, err.stack);
-                                   //     } else {
-                                  //          callback(null, {
-                                  //              "statusCode": 200,
-                                  //              "body": JSON.stringify(data.Workspaces[0]),
-                                  //              "headers": {
-                       //                             "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                       //                             "Access-Control-Allow-Methods": "GET,OPTIONS",
-                      //                              "Access-Control-Allow-Origin": originURL
-                      //                          }
-                       //                     });
-                       //                 }
-                        //            });
-//
-                       //         }
-                       //     }
-                       var filteredTag = data.TagList.find( function (tagList) {
-                        return tagList.Key == "SelfServiceManaged" && 
-                                tagList.Value == event.requestContext.authorizer.claims.email;
-                    });
-
-                    if (filteredTag) {
-
-                        console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + filteredTag);
-
-                        callback(null, {
-                            "statusCode": 200,
-                            "body": JSON.stringify(filteredTag),
-                            "headers": {
-                                "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                "Access-Control-Allow-Origin": originURL
+                            var filteredTag = data.TagList.find( function (tagList) {
+                                return tagList.Key == "SelfServiceManaged" && 
+                                        tagList.Value == event.requestContext.authorizer.claims.email;
+                            });
+                            console.log("filteredtag "+filteredTag)
+                            if (filteredTag) {
+        
+                                console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + filteredTag);
+        
+                                callback(null, {
+                                    "statusCode": 200,
+                                    "body": JSON.stringify(filteredTag),
+                                    "headers": {
+                                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                                        "Access-Control-Allow-Methods": "GET,OPTIONS",
+                                        "Access-Control-Allow-Origin": originURL
+                                    }
+                                });
                             }
-                        });
-                    }
+
                         }
                     });
                 }
