@@ -48,14 +48,14 @@ exports.handler = (event, context, callback) => {
                 var workspaceDetails;
                 // [{ id: 1}, {id: 2}]
                 for (var i = 0; data.Workspaces.length > i; i++) {
-                    workspaceDetails = data.Workspaces[i];
-
-                    console.log("current ID wokspaces is ="+workspaceDetails.WorkspaceId);
-                    var describeTagsParams = {
-                        ResourceId: workspaceDetails.WorkspaceId
-                    };
                     
                     if (!emailsHasFound) {
+                        workspaceDetails = data.Workspaces[i];
+    
+                        console.log("current ID wokspaces is ="+workspaceDetails.WorkspaceId);
+                        var describeTagsParams = {
+                            ResourceId: workspaceDetails.WorkspaceId
+                        };
                         workspaces.describeTags(describeTagsParams, function (err, tagData) {
                             console.log("data2"+JSON.stringify(tagData));
                             console.log("describeparam"+JSON.stringify(describeTagsParams));
@@ -71,7 +71,7 @@ exports.handler = (event, context, callback) => {
                                 console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + emailsHasFound + ". Workspace: " + JSON.stringify(workspaceDetails));
                                 var response = {
                                     WorkspaceId: workspaceDetails.WorkspaceId,
-                                    UserName: workspaceDetails.Username,
+                                    UserName: workspaceDetails.UserName,
                                     State: workspaceDetails.State,
                                     BundleId: workspaceDetails.BundleId,
                                 };
