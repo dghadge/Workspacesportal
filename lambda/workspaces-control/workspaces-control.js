@@ -62,7 +62,7 @@ exports.handler = (event, context, callback) => {
                                 return tagList.Key == "SelfServiceManaged" && 
                                         tagList.Value == event.requestContext.authorizer.claims.email;
                             });
-                            console.log("filteredtag "+JSON.stringify(filteredTag))
+                            //console.log("filteredtag "+JSON.stringify(filteredTag))
                             if (filteredTag) {
         
                                 console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " +JSON.stringify(filteredTag));
