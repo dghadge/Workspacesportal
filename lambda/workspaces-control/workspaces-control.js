@@ -58,6 +58,7 @@ exports.handler = (event, context, callback) => {
                         };
                         workspaces.describeTags(describeTagsParams, function (err, tagData) {
                             console.log("data2"+JSON.stringify(tagData));
+                            console.log("current ID wokspaces is2 ="+workspaceDetails.WorkspaceId);
                             console.log("describeparam"+JSON.stringify(describeTagsParams));
                             if (err) {
                                 console.log(err, err.stack);
