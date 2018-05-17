@@ -80,7 +80,8 @@ var authToken;
             beforeSend: function () {},
             complete: function () {},
             data: JSON.stringify({
-                action: 'reboot'
+                action: 'reboot',
+                WorkspaceId: $("#workspace-Id").text(),
             }),
             contentType: 'text/plain',
             error: function () {
@@ -164,7 +165,8 @@ var authToken;
             },
             complete: function () {},
             data: JSON.stringify({
-                action: 'delete'
+                action: 'delete',
+                WorkspaceId: $("#workspace-Id").text(),
             }),
             contentType: 'text/plain',
             error: function () {
