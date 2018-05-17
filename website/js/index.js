@@ -114,7 +114,8 @@ var authToken;
             beforeSend: function () {},
             complete: function () {},
             data: JSON.stringify({
-                action: 'rebuild'
+                action: 'rebuild',
+                WorkspaceId: $("#workspace-Id").text(),
             }),
             contentType: 'text/plain',
             error: function () {
