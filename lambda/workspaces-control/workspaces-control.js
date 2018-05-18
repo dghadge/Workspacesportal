@@ -272,7 +272,7 @@ exports.handler = (event, context, callback) => {
                 });
             }
 
-            console.log("Rebuild Result: " + JSON.stringify(data));
+            console.log("Reboot Result: " + JSON.stringify(data));
 
             callback(null, {
                 "statusCode": 200,
@@ -291,75 +291,43 @@ exports.handler = (event, context, callback) => {
         // This is a permanent action and cannot be undone. No data will persist after removal.
 
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
+        console.log('Request params:' + JSON.stringify(request));
+        const WorkspaceId = request.WorkspaceId;
+        var terminateParams = {
+            terminateWorkspaceRequests: [{ WorkspaceId }]
+        };
 
-        var describeWorkspacesParams = [];
+        console.log('terminate params: '+ JSON.stringify(terminateParams));
 
-        workspaces.describeWorkspaces(describeWorkspacesParams, function (err, data) {
+        workspaces.terminateWorkspaces(terminateParams, function (err, data) {
             if (err) {
-                console.log(err, err.stack); // an error occurred
-            } else {
-
-                for (var i = 0; i < data.Workspaces.length; i++) {
-
-                    var describeTagsParams = {
-                        ResourceId: data.Workspaces[i].WorkspaceId /* required */
-                    };
-                    workspaces.describeTags(describeTagsParams, function (err, data) {
-                        if (err) {
-                            console.log(err, err.stack);
-                        } else {
-
-                            for (var i = 0; i < data.TagList.length; i++) {
-                                if (data.TagList[i].Key == "SelfServiceManaged" && data.TagList[i].Value == event.requestContext.authorizer.claims.email) {
-                                    console.log("Desktop for '" + event.requestContext.authorizer.claims.email + "' found: " + describeTagsParams.ResourceId);
-                                    console.log("Deleting desktop '" + describeTagsParams.ResourceId + " per request.");
-
-                                    var deletionParams = {
-                                        TerminateWorkspaceRequests: [{
-                                            WorkspaceId: describeTagsParams.ResourceId
-                                        }]
-                                    };
-
-                                    console.log(JSON.stringify(deletionParams));
-
-                                    workspaces.terminateWorkspaces(deletionParams, function (err, data) {
-                                        if (err) {
-                                            console.log("Error: " + err);
-                                            callback(null, {
-                                                statusCode: 500,
-                                                body: JSON.stringify({
-                                                    Error: err,
-                                                }),
-                                                headers: {
-                                                    'Access-Control-Allow-Origin': '*',
-                                                },
-                                            });
-                                        } else {
-                                            console.log("Result: " + JSON.stringify(data));
-
-                                            callback(null, {
-                                                "statusCode": 200,
-                                                "body": JSON.stringify({
-                                                    Result: data
-                                                }),
-                                                "headers": {
-                                                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                                                    "Access-Control-Allow-Methods": "GET,OPTIONS",
-                                                    "Access-Control-Allow-Origin": originURL
-                                                }
-                                            });
-                                        }
-                                    });
-
-                                }
-                            }
-
-                        }
-                    });
-                }
-
+                console.log("Error: " + err);
+                return callback(null, {
+                    statusCode: 500,
+                    body: JSON.stringify({
+                        Error: err,
+                    }),
+                    headers: {
+                        'Access-Control-Allow-Origin': '*', // isso aqui é falha de seguranca... vou deixar por enquanto, mas tem que remover
+                    },
+                });
             }
+
+            console.log("Delete Result: " + JSON.stringify(data));
+
+            callback(null, {
+                "statusCode": 200,
+                "body": JSON.stringify({
+                    Result: data
+                }),
+                "headers": {
+                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                    "Access-Control-Allow-Methods": "GET,OPTIONS",
+                    "Access-Control-Allow-Origin": originURL
+                }
+            });
         });
+
 
     } else if (action == "bundles") {
         // 'bundles' handles returning the list of WorkSpaces bundles available to use. The WorkSpaces API only returns a page at a time, so we must recursively 
