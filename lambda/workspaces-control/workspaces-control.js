@@ -50,7 +50,7 @@ exports.handler = (event, context, callback) => {
           
             // [{ id: 1}, {id: 2}]
             data.Workspaces.forEach((workspaceDetails) => {
-              console.log('>>>>>>>>>>>>>>>>>>>>');
+              console.log('>>>>>>>>>>>>>>>>>>');
               console.log(`Current ID wokspaces is = ${workspaceDetails.WorkspaceId}`);
               const describeTagsParams = {
                 ResourceId: workspaceDetails.WorkspaceId,
