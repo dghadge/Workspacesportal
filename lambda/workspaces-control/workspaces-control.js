@@ -293,41 +293,40 @@ exports.handler = (event, context, callback) => {
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
         console.log('Request params:' + JSON.stringify(request));
         const WorkspaceId = request.WorkspaceId;
-        var terminateParams = {
-            terminateWorkspaceRequests: [{ WorkspaceId }]
+
+        var deletionParams = {
+            TerminateWorkspaceRequests: [{ WorkspaceId }]
         };
+        console.log('delete params: '+ JSON.stringify(deletionParams));
 
-        console.log('terminate params: '+ JSON.stringify(terminateParams));
-
-        workspaces.terminateWorkspaces(terminateParams, function (err, data) {
+        workspaces.terminateWorkspaces(deletionParams, function (err, data) {
             if (err) {
                 console.log("Error: " + err);
-                return callback(null, {
+                callback(null, {
                     statusCode: 500,
                     body: JSON.stringify({
                         Error: err,
                     }),
                     headers: {
-                        'Access-Control-Allow-Origin': '*', // isso aqui é falha de seguranca... vou deixar por enquanto, mas tem que remover
+                        'Access-Control-Allow-Origin': '*',
                     },
                 });
+            } else {
+                console.log("Result: " + JSON.stringify(data));
+
+                callback(null, {
+                    "statusCode": 200,
+                    "body": JSON.stringify({
+                        Result: data
+                    }),
+                    "headers": {
+                        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                        "Access-Control-Allow-Methods": "GET,OPTIONS",
+                        "Access-Control-Allow-Origin": originURL
+                    }
+                });
             }
-
-            console.log("Delete Result: " + JSON.stringify(data));
-
-            callback(null, {
-                "statusCode": 200,
-                "body": JSON.stringify({
-                    Result: data
-                }),
-                "headers": {
-                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-                    "Access-Control-Allow-Methods": "GET,OPTIONS",
-                    "Access-Control-Allow-Origin": originURL
-                }
-            });
         });
-
 
     } else if (action == "bundles") {
         // 'bundles' handles returning the list of WorkSpaces bundles available to use. The WorkSpaces API only returns a page at a time, so we must recursively 
