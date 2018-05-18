@@ -37,7 +37,7 @@ exports.handler = (event, context, callback) => {
         console.log("Trying to find desktop owned by: " + event.requestContext.authorizer.claims.email);
 
         var params = [];
-
+        var describeWorkspacesParams = []
         // Obtain a list of all WorkSpaces, then parse the returned list to find the one with a 'SelfServiceManaged' tag
         // that equals the email address of the Cognito token, then take the ID of that WorkSpace and return all of its details back.
                
