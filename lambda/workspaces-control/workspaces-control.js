@@ -174,17 +174,20 @@ exports.handler = (event, context, callback) => {
         // the process ends. If the Approver approves, the next State Machine calls another Lambda function 'workspaces-create' that
         // actually handles creating the WorkSpace.
 
-        
-
+        console.log("API response data");
+        console.log(JSON.parse(event.body));
         var stepParams = {
             stateMachineArn: stateMachine,
+           
             /* required */
             input: JSON.stringify({
+                
                 "action": "put",
                 "requesterEmailAddress": event.requestContext.authorizer.claims.email,
                 "requesterUsername": JSON.parse(event.body)["username"],
                 "requesterBundle": JSON.parse(event.body)["bundle"],
                 "ws_status": "Requested"
+                
             })
         };
         stepfunctions.startExecution(stepParams, function (err, data) {
