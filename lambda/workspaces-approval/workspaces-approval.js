@@ -50,6 +50,7 @@ exports.handler = (event, context, callback) => {
                             Html: {
                                 Data: 'Hi!<br />' +
                                     input.requesterEmailAddress + ' has requested a WorkSpace!<br />' +
+                                    'Username:<br />' + input.requesterUsername +
                                     'Can you please approve:<br />' +
                                     'https://' + process.env.API_DEPLOYMENT_ID + '.execute-api.' + process.env.AWS_REGION + '.amazonaws.com/respond/succeed?taskToken=' + encodeURIComponent(data.taskToken) + '&requesterEmailAddress=' + input.requesterEmailAddress + '&requesterUsername=' + input.requesterUsername + '&requesterBundle=' + input.requesterBundle + '<br />' +
                                     'Or reject:<br />' +
