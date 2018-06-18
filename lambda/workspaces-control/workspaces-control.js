@@ -370,7 +370,7 @@ exports.handler = (event, context, callback) => {
         // Get the Amazon-owned bundle list first, and then get the Customer-owned bundles next, and then return the entire list.
         getBundles({
         
-            Owner: null
+            Owner: 'AMAZON'
         }, function () {
             getBundles({
                 Owner: null
