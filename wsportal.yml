@@ -27,7 +27,7 @@ Parameters:
   DirectoryServicesId:
     Type: String
     Description: Directory Services ID configured within Amazon WorkSpaces.
-    Default: d-9767258442
+    Default: d-976724bcb2
   ApprovedDomain:
     Type: String
     Description: Approved email domain that can sign up for Portal access.
